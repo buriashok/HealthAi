@@ -6,14 +6,15 @@ import {
   getDiseases,
   chat,
 } from '../controllers/symptomController.js';
+import { optionalAuth } from '../middleware/authMiddleware.js';
 
 const router = Router();
 
 // POST /api/chat — Free-form AI conversation (Groq LLM)
-router.post('/chat', chat);
+router.post('/chat', optionalAuth, chat);
 
 // POST /api/symptoms/analyze — Analyze symptoms and return structured predictions
-router.post('/symptoms/analyze', analyzeSymptoms);
+router.post('/symptoms/analyze', optionalAuth, analyzeSymptoms);
 
 // POST /api/symptoms/follow-up — Generate a dynamic follow-up question
 router.post('/symptoms/follow-up', getFollowUp);

@@ -25,6 +25,9 @@ export const chat = async (req, res) => {
   }
 };
 
+import ChatSession from '../models/ChatSession.js';
+import User from '../models/User.js';
+
 /**
  * POST /api/symptoms/analyze
  * Body: { messages: [{ text: string, sender: string }] }
@@ -36,6 +39,24 @@ export const analyzeSymptoms = async (req, res) => {
       return res.status(400).json({ error: 'messages array is required' });
     }
     const predictions = await runAnalysis(messages);
+
+    // Save to DB and give Gamification points if logged in
+    if (req.user && req.user.userId) {
+      await ChatSession.create({
+        user: req.user.userId,
+        messages: messages.map(m => ({
+          role: m.sender,
+          content: m.text,
+        })),
+        predictions
+      });
+
+      // Award 10 points
+      await User.findByIdAndUpdate(req.user.userId, {
+        $inc: { 'gamification.points': 10 }
+      });
+    }
+
     res.json({ predictions });
   } catch (err) {
     console.error('analyzeSymptoms error:', err.message);

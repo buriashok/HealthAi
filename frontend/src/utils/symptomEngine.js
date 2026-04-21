@@ -3,6 +3,14 @@
 // In dev, Vite proxies /api to localhost:5000. In production, use the full Render backend URL.
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
+const getHeaders = () => {
+  const token = localStorage.getItem('healthAI_token');
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {})
+  };
+};
+
 /**
  * Send a chat message and get an AI response from Groq.
  * @param {Array} messages - OpenAI-format messages: [{ role: 'user'|'assistant', content: string }]
@@ -13,7 +21,7 @@ export const sendChatMessage = async (messages, language = 'en') => {
   try {
     const res = await fetch(`${API_BASE}/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders(),
       body: JSON.stringify({ messages, language }),
     });
     const data = await res.json();
@@ -27,7 +35,9 @@ export const sendChatMessage = async (messages, language = 'en') => {
 
 export const getTranslation = async (lang, key) => {
   try {
-    const res = await fetch(`${API_BASE}/symptoms/translation/${lang}/${key}`);
+    const res = await fetch(`${API_BASE}/symptoms/translation/${lang}/${key}`, {
+      headers: getHeaders()
+    });
     const data = await res.json();
     return data.text;
   } catch {
@@ -47,7 +57,7 @@ export const analyzeSymptoms = async (messagesHistory) => {
   try {
     const res = await fetch(`${API_BASE}/symptoms/analyze`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getHeaders(),
       body: JSON.stringify({ messages: messagesHistory }),
     });
     const data = await res.json();

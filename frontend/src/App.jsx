@@ -4,11 +4,15 @@ import { Activity, MessageSquare, LayoutDashboard, MapPin, Image as ImageIcon, B
 import './index.css'
 
 import { useAppContext } from './context/AppContext';
+import { useAuth } from './context/AuthContext';
+import { Loader2, LogOut } from 'lucide-react';
+import Login from './components/auth/Login';
 
 // Layout Component
 const Layout = ({ children }) => {
   const location = useLocation();
   const { userProfile } = useAppContext();
+  const { user, logout } = useAuth();
 
   const navLinks = [
     { path: '/', name: 'Symptom Checker', icon: <MessageSquare size={20} /> },
@@ -47,12 +51,21 @@ const Layout = ({ children }) => {
           <div>
              <span style={{color: 'var(--text-secondary)'}}>{new Date().toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
           </div>
-          <Link to="/profile" style={{ textDecoration: 'none' }}>
-            <div className="user-badge" style={{ cursor: 'pointer' }}>
-              <div className="avatar">{userProfile?.initials || 'U'}</div>
-              <span style={{ color: 'var(--text-primary)' }}>{userProfile?.name || 'User'}</span>
-            </div>
-          </Link>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <Link to="/profile" style={{ textDecoration: 'none' }}>
+              <div className="user-badge" style={{ cursor: 'pointer' }}>
+                {user?.avatar ? (
+                  <img src={user.avatar} alt="Avatar" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+                ) : (
+                  <div className="avatar">{userProfile?.initials || 'U'}</div>
+                )}
+                <span style={{ color: 'var(--text-primary)' }}>{user?.name || userProfile?.name || 'User'}</span>
+              </div>
+            </Link>
+            <button className="btn btn-secondary" onClick={logout} style={{ padding: '6px' }} title="Logout">
+              <LogOut size={16} />
+            </button>
+          </div>
         </header>
 
         <div className="content-wrapper">
@@ -101,6 +114,26 @@ const Profile = () => (
 );
 
 function App() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Loader2 className="animate-spin" size={48} color="var(--primary-color)" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route path="*" element={<Login />} />
+        </Routes>
+      </BrowserRouter>
+    );
+  }
+
   return (
     <BrowserRouter>
       <Layout>
