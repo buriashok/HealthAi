@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1,
+    "name": "Viral Flu",
+    "keywords": "fever, cough",
+    "threshold": "70%"
+  },
+  {
+    "id": 2,
+    "name": "COVID-19",
+    "keywords": "fever, loss of taste, dry cough",
+    "threshold": "80%"
+  },
+  {
+    "id": 3,
+    "name": "Muscle Strain",
+    "keywords": "pain, back, lifting",
+    "threshold": "60%"
+  },
+  {
+    "id": 4,
+    "name": "Food Poisoning",
+    "keywords": "stomach, nausea, vomiting",
+    "threshold": "75%"
+  },
+  {
+    "id": 5,
+    "name": "Common Cold",
+    "keywords": "cough, runny nose, sneezing",
+    "threshold": "65%"
+  },
+  {
+    "id": 6,
+    "name": "Gastroenteritis",
+    "keywords": "stomach, diarrhea, cramps",
+    "threshold": "70%"
+  }
+]
