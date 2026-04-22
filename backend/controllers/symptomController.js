@@ -4,12 +4,18 @@ import {
   generateFollowUp,
   getTranslation as translate,
 } from '../services/symptomEngine.js';
+import { filterPrompt, getEmergencyPromptAddition } from '../services/promptFilter.js';
+import { getCachedResponse, setCachedResponse, getCachedAnalysis, setCachedAnalysis } from '../services/cacheService.js';
 import diseases from '../data/diseases.json' with { type: 'json' };
+import ChatSession from '../models/ChatSession.js';
+import User from '../models/User.js';
+
+const DISCLAIMER = '\n\n⚠️ *This is not a medical diagnosis. Please consult a healthcare professional for proper medical advice.*';
 
 /**
  * POST /api/chat
  * Body: { messages: [{ role: 'user'|'assistant', content: string }], language: string }
- * Returns: { reply: string }
+ * Returns: { reply: string, isEmergency: boolean }
  */
 export const chat = async (req, res) => {
   try {
@@ -17,16 +23,45 @@ export const chat = async (req, res) => {
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: 'messages array is required' });
     }
-    const reply = await chatWithAI(messages, language);
-    res.json({ reply });
+
+    // Get the last user message for filtering
+    const lastMessage = messages[messages.length - 1];
+    const filterResult = filterPrompt(lastMessage?.content || '');
+
+    if (!filterResult.allowed) {
+      return res.json({ reply: filterResult.response, isEmergency: false, filtered: true });
+    }
+
+    // Check cache
+    const cached = getCachedResponse(messages);
+    if (cached && !filterResult.isEmergency) {
+      return res.json({ reply: cached, isEmergency: false, cached: true });
+    }
+
+    // Call AI with emergency context if needed
+    const options = {};
+    if (filterResult.isEmergency) {
+      options.emergencyAddition = getEmergencyPromptAddition();
+    }
+
+    let reply = await chatWithAI(messages, language, options);
+
+    // Append disclaimer to substantive health responses
+    if (reply.length > 100 && !reply.includes('not a medical diagnosis')) {
+      reply += DISCLAIMER;
+    }
+
+    // Cache the response (skip emergency responses)
+    if (!filterResult.isEmergency) {
+      setCachedResponse(messages, reply);
+    }
+
+    res.json({ reply, isEmergency: filterResult.isEmergency || false });
   } catch (err) {
     console.error('chat error:', err.message);
-    res.status(500).json({ error: 'Failed to get AI response. Check your GROQ_API_KEY.' });
+    res.status(500).json({ error: 'Failed to get AI response. Please try again.' });
   }
 };
-
-import ChatSession from '../models/ChatSession.js';
-import User from '../models/User.js';
 
 /**
  * POST /api/symptoms/analyze
@@ -38,23 +73,37 @@ export const analyzeSymptoms = async (req, res) => {
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: 'messages array is required' });
     }
+
+    // Check cache
+    const cached = getCachedAnalysis(messages);
+    if (cached) {
+      return res.json({ predictions: cached, cached: true });
+    }
+
     const predictions = await runAnalysis(messages);
+
+    // Cache the analysis
+    setCachedAnalysis(messages, predictions);
 
     // Save to DB and give Gamification points if logged in
     if (req.user && req.user.userId) {
-      await ChatSession.create({
-        user: req.user.userId,
-        messages: messages.map(m => ({
-          role: m.sender,
-          content: m.text,
-        })),
-        predictions
-      });
+      try {
+        await ChatSession.create({
+          user: req.user.userId,
+          messages: messages.map(m => ({
+            role: m.sender,
+            content: m.text,
+          })),
+          predictions
+        });
 
-      // Award 10 points
-      await User.findByIdAndUpdate(req.user.userId, {
-        $inc: { 'gamification.points': 10 }
-      });
+        // Award 10 points
+        await User.findByIdAndUpdate(req.user.userId, {
+          $inc: { 'gamification.points': 10 }
+        });
+      } catch (dbErr) {
+        console.error('DB save error (non-fatal):', dbErr.message);
+      }
     }
 
     res.json({ predictions });

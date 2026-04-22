@@ -5,22 +5,19 @@ const AppContext = createContext();
 export const useAppContext = () => useContext(AppContext);
 
 export const AppProvider = ({ children }) => {
-  // Try to load state from Local Storage
   const loadState = (key, defaultValue) => {
     const saved = localStorage.getItem(key);
     if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return defaultValue;
-      }
+      try { return JSON.parse(saved); } catch { return defaultValue; }
     }
     return defaultValue;
   };
 
+  const [language, setLanguage] = useState(() => loadState('healthAI_lang', 'en'));
+
   const [userProfile, setUserProfile] = useState(() => loadState('healthAI_profile', {
-    name: 'John Doe',
-    initials: 'JD',
+    name: 'User',
+    initials: 'U',
     age: 30,
     language: 'en',
     streak: 1,
@@ -34,23 +31,18 @@ export const AppProvider = ({ children }) => {
     { id: 3, title: 'Flu Vaccine Booster', time: 'Oct 15, 2026', type: 'Vaccine', status: 'Upcoming' },
   ]));
 
-  // Save changes to Local Storage automatically
-  useEffect(() => {
-    localStorage.setItem('healthAI_profile', JSON.stringify(userProfile));
-  }, [userProfile]);
+  // Persist to localStorage
+  useEffect(() => { localStorage.setItem('healthAI_profile', JSON.stringify(userProfile)); }, [userProfile]);
+  useEffect(() => { localStorage.setItem('healthAI_history', JSON.stringify(healthHistory)); }, [healthHistory]);
+  useEffect(() => { localStorage.setItem('healthAI_reminders', JSON.stringify(reminders)); }, [reminders]);
+  useEffect(() => { localStorage.setItem('healthAI_lang', JSON.stringify(language)); }, [language]);
 
-  useEffect(() => {
-    localStorage.setItem('healthAI_history', JSON.stringify(healthHistory));
-  }, [healthHistory]);
-
-  useEffect(() => {
-    localStorage.setItem('healthAI_reminders', JSON.stringify(reminders));
-  }, [reminders]);
-
-  // Helper actions
+  // Limit history to 50 entries to save storage on free MongoDB tier
   const addHistoryRecord = (record) => {
-    // record could be { type: 'chat' | 'scan', date: iso, details: any }
-    setHealthHistory(prev => [record, ...prev]);
+    setHealthHistory(prev => {
+      const updated = [record, ...prev];
+      return updated.slice(0, 50);
+    });
   };
 
   const updateProfile = (updates) => {
@@ -71,6 +63,7 @@ export const AppProvider = ({ children }) => {
 
   return (
     <AppContext.Provider value={{
+      language, setLanguage,
       userProfile, updateProfile,
       healthHistory, setHealthHistory, addHistoryRecord,
       reminders, addReminder, completeReminder, deleteReminder
